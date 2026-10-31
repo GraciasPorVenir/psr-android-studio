@@ -4,5 +4,6 @@
 - Docente: Javier Blanco
 
 ### Consigna
-1. Simular login
-2. Calculadora
+1. Pedir acceso por credenciales (username/password)
+2. Si se superan los 3 intentos, evitar nuevos ingresos por x segundos.
+3. Mostrar dos inputs númericos y al presionar un botón, sumarlos y mostrar el resultado.
