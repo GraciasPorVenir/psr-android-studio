@@ -32,6 +32,16 @@ import com.example.myapplication.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.delay
 import kotlin.math.ceil
 import kotlin.math.max
+import android.content.Context
+import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import androidx.compose.material3.Card
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 
 private const val USERNAME = "admin"
 private const val PASSWORD = "1234"
@@ -153,57 +163,118 @@ fun CalculatorScreen(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Sumadora", style = MaterialTheme.typography.headlineMedium)
+        SensorsPanel()
 
-        OutlinedTextField(
-            value = num1,
-            onValueChange = { num1 = it },
-            label = { Text("Primer número") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp)
-        )
-
-        OutlinedTextField(
-            value = num2,
-            onValueChange = { num2 = it },
-            label = { Text("Segundo número") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp)
-        )
-
-        Button(
-            onClick = {
-                val a = num1.toDoubleOrNull()
-                val b = num2.toDoubleOrNull()
-                result = if (a == null || b == null) {
-                    "Ingresa dos números válidos"
-                } else {
-                    val sum = a + b
-                    "Resultado: " + if (sum % 1.0 == 0.0) sum.toLong().toString() else sum.toString()
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 20.dp)
+                .weight(1f)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Sumar")
+            Text("Sumadora", style = MaterialTheme.typography.headlineMedium)
+
+            OutlinedTextField(
+                value = num1,
+                onValueChange = { num1 = it },
+                label = { Text("Primer número") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp)
+            )
+
+            OutlinedTextField(
+                value = num2,
+                onValueChange = { num2 = it },
+                label = { Text("Segundo número") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            )
+
+            Button(
+                onClick = {
+                    val a = num1.toDoubleOrNull()
+                    val b = num2.toDoubleOrNull()
+                    result = if (a == null || b == null) {
+                        "Ingresa dos números válidos"
+                    } else {
+                        val sum = a + b
+                        "Resultado: " + if (sum % 1.0 == 0.0) sum.toLong().toString() else sum.toString()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp)
+            ) {
+                Text("Sumar")
+            }
+
+            if (result.isNotEmpty()) {
+                Text(
+                    text = result,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(top = 20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SensorsPanel() {
+    val context = LocalContext.current
+    var accel by remember { mutableStateOf("Esperando…") }
+    var gyro by remember { mutableStateOf("Esperando…") }
+    var light by remember { mutableStateOf("Esperando…") }
+
+    DisposableEffect(Unit) {
+        val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                when (event.sensor.type) {
+                    Sensor.TYPE_ACCELEROMETER ->
+                        accel = "x=%.2f  y=%.2f  z=%.2f m/s²".format(
+                            event.values[0], event.values[1], event.values[2]
+                        )
+                    Sensor.TYPE_GYROSCOPE ->
+                        gyro = "x=%.2f  y=%.2f  z=%.2f rad/s".format(
+                            event.values[0], event.values[1], event.values[2]
+                        )
+                    Sensor.TYPE_LIGHT ->
+                        light = "%.1f lx".format(event.values[0])
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
 
-        if (result.isNotEmpty()) {
-            Text(
-                text = result,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 20.dp)
-            )
+        fun register(type: Int, onMissing: () -> Unit) {
+            val sensor = sm.getDefaultSensor(type)
+            if (sensor == null) onMissing()
+            else sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        }
+
+        register(Sensor.TYPE_ACCELEROMETER) { accel = "No disponible" }
+        register(Sensor.TYPE_GYROSCOPE) { gyro = "No disponible" }
+        register(Sensor.TYPE_LIGHT) { light = "No disponible" }
+
+        onDispose { sm.unregisterListener(listener) }
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Sensores", style = MaterialTheme.typography.titleMedium)
+            Text("Acelerómetro: $accel", modifier = Modifier.padding(top = 8.dp))
+            Text("Giroscopio: $gyro", modifier = Modifier.padding(top = 4.dp))
+            Text("Luz: $light", modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
